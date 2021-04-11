@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	"image-clone-controller/pkg/imagesManagement"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,9 +33,6 @@ type DaemonsetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=apps,resources=deployments,daemonsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployments/status,daemonsets/status,verbs=get;update;patch
-
 func (r *DaemonsetReconciler) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 
@@ -47,21 +44,22 @@ func (r *DaemonsetReconciler) Reconcile(_ context.Context, req ctrl.Request) (ct
 	}
 
 	var toPatch bool
-	for _, c := range daemonset.Spec.Template.Spec.Containers {
-		backupImageName, err := imagesManagement.Get().EnforceBackup(c.Image)
-		if err != nil {
-			klog.Error(err)
-			return ctrl.Result{RequeueAfter: requeuePeriod}, err
-		}
-		if backupImageName != c.Image {
-			c.Image = backupImageName
-			toPatch = true
-		}
+	if toPatch, err = containerIterator(daemonset.Spec.Template.Spec.InitContainers); err != nil {
+		klog.Error(err)
+		return ctrl.Result{RequeueAfter: requeuePeriod}, err
+	}
+	if toPatch, err = containerIterator(daemonset.Spec.Template.Spec.Containers); err != nil {
+		klog.Error(err)
+		return ctrl.Result{RequeueAfter: requeuePeriod}, err
 	}
 
 	if toPatch {
 		if err := r.Update(context.TODO(), daemonset); err != nil {
-			klog.Error(err)
+			if kerrors.IsConflict(err) {
+				klog.V(3).Info(err)
+			} else {
+				klog.Error(err)
+			}
 			return ctrl.Result{RequeueAfter: requeuePeriod}, err
 		}
 	}

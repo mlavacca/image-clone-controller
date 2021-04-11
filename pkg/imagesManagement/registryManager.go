@@ -15,23 +15,27 @@ import (
 	"strings"
 )
 
+const dockerRegistry = "index.docker.io"
+
 type RegistryManager interface {
 	EnforceBackup(repository string) (string, error)
 }
 
 type registryConnection struct {
 	backupRegistry string
+	backupRepository string
 }
 
 var registryConnectionInstance *registryConnection
 
-func SetupRegistryManager(backupRegistry string) error {
+func SetupRegistryManager(backupRegistry, backupRepository string) error {
 	if registryConnectionInstance != nil {
 		return errors.New("registryManager already setup")
 	}
 
 	registryConnectionInstance = &registryConnection{
 		backupRegistry: backupRegistry,
+		backupRepository: backupRepository,
 	}
 	return nil
 }
@@ -40,48 +44,51 @@ func Get() RegistryManager {
 	return registryConnectionInstance
 }
 
-func (r *registryConnection) EnforceBackup(originalImageName string) (string, error) {
-	if strings.HasPrefix(fmt.Sprintf("%s/", originalImageName), r.backupRegistry) {
-		return originalImageName, nil
-	}
-
+func (r registryConnection) EnforceBackup(originalImageName string) (string, error) {
 	// get the original image's reference
 	originalRef, err := name.ParseReference(originalImageName)
 	if err != nil {
 		return "", err
 	}
 
-	// build the backup image reference
-	backupImageName := fmt.Sprintf("%s/%s:%s",
-		r.backupRegistry,
-		strings.Replace(originalRef.Context().RepositoryStr(), "/", "-", -1),
-		originalRef.Identifier())
-
-	if backupImageName == originalImageName {
+	// check if the image already belongs to the backup repository
+	if originalRef.Context().Registry.RegistryStr() == r.backupRegistry &&
+		strings.HasPrefix(originalRef.Context().RepositoryStr(), fmt.Sprintf("%s/", r.backupRepository)){
 		return originalImageName, nil
 	}
+
+	// build the backup image reference
+	backupImageName := fmt.Sprintf("%s/%s:%s",
+		r.backupRepository,
+		strings.Replace(originalRef.Context().RepositoryStr(), "/", "-", -1),
+		originalRef.Identifier())
 
 	backupRef, err := name.ParseReference(backupImageName)
 	if err != nil {
 		return "", err
 	}
 
-	// pull the original image
-	originalImage, err := remote.Image(originalRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		return "", err
-	}
-
 	// pull the backup image
+	klog.V(3).Infof("pulling the backup image %s", backupRef.String())
 	_, err = remote.Image(backupRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err == nil {
+		klog.V(3).Info("backup image %s already existing", backupRef.String())
 		return backupRef.String(), nil
 	}
 	if !isImageNotFound(err) {
 		return "", err
 	}
 
+	// pull the original image
+	klog.Infof("backup image %s does not exist", backupRef.String())
+	klog.V(3).Infof("pulling the original image %s", originalRef.String())
+	originalImage, err := remote.Image(originalRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return "", err
+	}
+
 	// if the backup image does not exist yet, create and push it
+	klog.V(3).Info("pushing the backup image %s", backupRef.String())
 	if err = pushBackupImage(originalImage, backupRef.String()); err != nil {
 		return "", err
 	}

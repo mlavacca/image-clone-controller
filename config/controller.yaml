@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: image-clone-controller
+  name: images-backup
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-clone-controller
+  namespace: images-backup
+  labels:
+    app: image-clone-controller
+spec:
+  selector:
+    matchLabels:
+      app: image-clone-controller
+  template:
+    metadata:
+      labels:
+        app: image-clone-controller
+    spec:
+      serviceAccountName: image-clone-controller
+      containers:
+      - name: manager
+        command:
+        - /manager
+        args:
+        - --backup-registry
+        - mlvtask
+        image: mlvtask/image-clone-controller:0.1
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: dockercfg
+            mountPath: "/docker"
+        env:
+          - name: DOCKER_CONFIG
+            value: "/docker"
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 200m
+            memory: 100Mi
+      volumes:
+        - name: dockercfg
+          secret:
+            secretName: backup-dockerconfigjson

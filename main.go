@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -24,9 +24,13 @@ func init() {
 }
 
 func main() {
-	var backupRegistry string
+	var (
+		backupRegistry string
+		backupRepository string
+	)
 
-	flag.StringVar(&backupRegistry, "backup-registry", "", "The registry to use as backup registry")
+	flag.StringVar(&backupRegistry, "backup-registry", "", "The registry to use as backup")
+	flag.StringVar(&backupRepository, "backup-repository", "", "The repository to use as backup")
 	klog.InitFlags(nil)
 	flag.Parse()
 
@@ -34,13 +38,17 @@ func main() {
 		klog.Error("--backup-registry flag is mandatory")
 		os.Exit(1)
 	}
+	if backupRepository == "" {
+		klog.Error("--backup-repository flag is mandatory")
+		os.Exit(1)
+	}
 
-	if err := imagesManagement.SetupRegistryManager(backupRegistry); err != nil {
+	if err := imagesManagement.SetupRegistryManager(backupRegistry, backupRepository); err != nil {
 		klog.Fatal(err)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
+		Scheme: scheme,
 	})
 	if err != nil {
 		klog.Fatal(err, " - unable to start manager")
