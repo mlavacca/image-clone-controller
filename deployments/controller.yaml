@@ -28,6 +28,8 @@ spec:
         - /manager
         args:
         - --backup-registry
+        - index.docker.io
+        - --backup-repository
         - mlvtask
         image: mlvtask/image-clone-controller:0.1
         imagePullPolicy: Always
