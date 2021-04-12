@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DaemonsetReconciler reconciles a Deployment object
 type DaemonsetReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme

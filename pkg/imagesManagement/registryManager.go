@@ -15,8 +15,6 @@ import (
 	"strings"
 )
 
-const dockerRegistry = "index.docker.io"
-
 type RegistryManager interface {
 	EnforceBackup(repository string) (string, error)
 }
@@ -30,7 +28,7 @@ var registryConnectionInstance *registryConnection
 
 func SetupRegistryManager(backupRegistry, backupRepository string) error {
 	if registryConnectionInstance != nil {
-		return errors.New("registryManager already setup")
+		return errors.New("registryManager already initialized")
 	}
 
 	registryConnectionInstance = &registryConnection{
@@ -44,7 +42,11 @@ func Get() RegistryManager {
 	return registryConnectionInstance
 }
 
-func (r registryConnection) EnforceBackup(originalImageName string) (string, error) {
+func (r *registryConnection) EnforceBackup(originalImageName string) (string, error) {
+	if r == nil {
+		return "", errors.New("registryManager not initialized")
+	}
+
 	// get the original image's reference
 	originalRef, err := name.ParseReference(originalImageName)
 	if err != nil {

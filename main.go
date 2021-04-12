@@ -20,7 +20,6 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = appsv1.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
