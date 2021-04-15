@@ -39,7 +39,9 @@ This operation will create:
 ### customize the docker config file
 
 A testing docker config file that uses the `index.docker.io/mlvtask` repository has been set in the secret. To use your
-own backup repository, simply customize the secret by setting the base64 of your docker config file in the `config.json` field.
+own backup repository:
+1. customize the secret by setting the base64 of your docker config file in the `config.json` field;
+2. customize the controller deployment arguments, by setting the proper registry and repository.
 
 The provided docker configuration in plain text can be found below:
 ```
