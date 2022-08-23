@@ -1,4 +1,4 @@
-# Image-clone-controller
+# Code-challenge: Image-clone-controller
 
 ## Problem description
 
